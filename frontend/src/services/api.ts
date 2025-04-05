@@ -27,6 +27,21 @@ export interface RecordingResponse {
   created_at: string;
 }
 
+export interface MemorySearchQuery {
+  query: string;
+  limit?: number;
+}
+
+export interface MemorySearchResult {
+  id: string;
+  text: string;
+  timestamp: string;
+  latitude?: number;
+  longitude?: number;
+  city?: string;
+  similarity: number;
+}
+
 export const recordingApi = {
   createRecording: async (data: RecordingCreateRequest): Promise<RecordingResponse> => {
     const response = await api.post('/api/recordings', data);
