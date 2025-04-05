@@ -1,6 +1,7 @@
 import * as React from "react"
 import { Button } from "../components/ui/button"
 import { Mic, StopCircle } from "lucide-react"
+import { recordingApi, RecordingCreateRequest } from "../services/api"
 
 const Card = ({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div className={`rounded-lg border bg-card text-card-foreground shadow-sm ${className}`} {...props}>{children}</div>
@@ -34,7 +35,27 @@ export function RecordPage() {
   const [isRecording, setIsRecording] = React.useState(false)
   const [recordingTime, setRecordingTime] = React.useState(0)
   const [recordingProgress, setRecordingProgress] = React.useState(0)
+  const [audioData, setAudioData] = React.useState<string | null>(null)
+  const [location, setLocation] = React.useState<{latitude?: number, longitude?: number, city?: string}>({})
+  const [isProcessing, setIsProcessing] = React.useState(false)
+  const [recordingResult, setRecordingResult] = React.useState<string | null>(null)
   
+  React.useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          })
+        },
+        (error) => {
+          console.error("Error getting location:", error)
+        }
+      )
+    }
+  }, [])
+
   React.useEffect(() => {
     let interval: number
     
@@ -50,14 +71,40 @@ export function RecordPage() {
     }
   }, [isRecording])
   
+  const simulateAudioRecording = () => {
+    return "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA="
+  }
+  
   const handleStartRecording = () => {
     setIsRecording(true)
     setRecordingTime(0)
     setRecordingProgress(0)
+    setRecordingResult(null)
   }
   
-  const handleStopRecording = () => {
+  const handleStopRecording = async () => {
     setIsRecording(false)
+    setIsProcessing(true)
+    
+    try {
+      const mockAudioData = simulateAudioRecording()
+      setAudioData(mockAudioData)
+      
+      const recordingData: RecordingCreateRequest = {
+        audio_data: mockAudioData,
+        timestamp: new Date().toISOString(),
+        latitude: location.latitude,
+        longitude: location.longitude
+      }
+      
+      const result = await recordingApi.createRecording(recordingData)
+      setRecordingResult(result.text)
+    } catch (error) {
+      console.error("Error creating recording:", error)
+      setRecordingResult("录音处理失败，请重试")
+    } finally {
+      setIsProcessing(false)
+    }
   }
   
   const formatTime = (seconds: number) => {
@@ -103,9 +150,22 @@ export function RecordPage() {
             </>
           )}
         </CardContent>
-        <CardFooter className="flex justify-between text-xs text-muted-foreground">
-          <div>位置: 正在获取...</div>
-          <div>时间: {new Date().toLocaleTimeString()}</div>
+        <CardFooter className="flex flex-col gap-2">
+          {recordingResult && (
+            <div className="p-3 bg-muted rounded-md w-full">
+              <h4 className="font-medium mb-1">转换结果:</h4>
+              <p className="text-sm">{recordingResult}</p>
+            </div>
+          )}
+          <div className="flex justify-between text-xs text-muted-foreground w-full">
+            <div>位置: {location.city || (location.latitude ? `${location.latitude.toFixed(4)}, ${location.longitude?.toFixed(4)}` : "正在获取...")}</div>
+            <div>时间: {new Date().toLocaleTimeString()}</div>
+          </div>
+          {isProcessing && (
+            <div className="text-center text-xs text-muted-foreground animate-pulse">
+              正在处理录音...
+            </div>
+          )}
         </CardFooter>
       </Card>
     </div>
